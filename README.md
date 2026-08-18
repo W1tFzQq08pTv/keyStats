@@ -115,16 +115,6 @@ KeyStats stores aggregate statistics and **does NOT record**:
 
 Data stays on the local device by default. When you explicitly enable multi-device sync, supported daily key-press totals, per-key/key-combination counts, mouse-button click counts, and encrypted device information are encrypted locally before upload. Mouse movement distance, scroll distance, and per-app statistics are not currently synced, and the service cannot read the encrypted statistics.
 
-## Star History
-
-<a href="https://www.star-history.com/?repos=debugtheworldbot%2FkeyStats&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=debugtheworldbot/keyStats&type=date&theme=dark&legend=top-left&sealed_token=FpskHdzuiI04Ouvje3C5300qrmRVEqE9-9jgN6U8DiCwq4cSK_d4KIvqw0QF-wmA5E1YMay-G6z1Anl_013aAwdl5d2oyITvOHAaug6UWkJRpPQn-N_7j4lbesA1Vh4MAQiRCfIqZLxvVZRD3S4r6L4zbSHX4KkPlia4Cxnvz6GGJfTrQVUCpuPWfhRC" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=debugtheworldbot/keyStats&type=date&legend=top-left&sealed_token=FpskHdzuiI04Ouvje3C5300qrmRVEqE9-9jgN6U8DiCwq4cSK_d4KIvqw0QF-wmA5E1YMay-G6z1Anl_013aAwdl5d2oyITvOHAaug6UWkJRpPQn-N_7j4lbesA1Vh4MAQiRCfIqZLxvVZRD3S4r6L4zbSHX4KkPlia4Cxnvz6GGJfTrQVUCpuPWfhRC" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=debugtheworldbot/keyStats&type=date&legend=top-left&sealed_token=FpskHdzuiI04Ouvje3C5300qrmRVEqE9-9jgN6U8DiCwq4cSK_d4KIvqw0QF-wmA5E1YMay-G6z1Anl_013aAwdl5d2oyITvOHAaug6UWkJRpPQn-N_7j4lbesA1Vh4MAQiRCfIqZLxvVZRD3S4r6L4zbSHX4KkPlia4Cxnvz6GGJfTrQVUCpuPWfhRC" />
- </picture>
-</a>
-
 ## License
 
 MIT License
