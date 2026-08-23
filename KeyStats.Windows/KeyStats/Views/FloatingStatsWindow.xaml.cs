@@ -74,6 +74,7 @@ public partial class FloatingStatsWindow : Window
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
+        NativeInterop.HideWindowFromSwitcher(new WindowInteropHelper(this).Handle);
         ApplySurface();
     }
 

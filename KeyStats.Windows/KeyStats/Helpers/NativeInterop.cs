@@ -6,6 +6,10 @@ namespace KeyStats.Helpers;
 
 public static class NativeInterop
 {
+    private const int GWL_EXSTYLE = -20;
+    private const long WS_EX_TOOLWINDOW = 0x00000080L;
+    private const long WS_EX_APPWINDOW = 0x00040000L;
+
     public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
     public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -106,6 +110,18 @@ public static class NativeInterop
     [DllImport("user32.dll")]
     public static extern short GetKeyState(int nVirtKey);
 
+    [DllImport("user32.dll", EntryPoint = "GetWindowLong", SetLastError = true)]
+    private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLong", SetLastError = true)]
+    private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
     [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
 
@@ -162,6 +178,29 @@ public static class NativeInterop
     public static short LoWord(int dword)
     {
         return (short)(dword & 0xFFFF);
+    }
+
+    /// <summary>Marks a utility window so Windows excludes it from Alt+Tab and Task View.</summary>
+    public static void HideWindowFromSwitcher(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var extendedStyle = IntPtr.Size == 8
+            ? GetWindowLongPtr64(hWnd, GWL_EXSTYLE).ToInt64()
+            : GetWindowLong32(hWnd, GWL_EXSTYLE);
+        extendedStyle = (extendedStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
+
+        if (IntPtr.Size == 8)
+        {
+            SetWindowLongPtr64(hWnd, GWL_EXSTYLE, new IntPtr(extendedStyle));
+        }
+        else
+        {
+            SetWindowLong32(hWnd, GWL_EXSTYLE, unchecked((int)extendedStyle));
+        }
     }
 
     [DllImport("user32.dll")]
