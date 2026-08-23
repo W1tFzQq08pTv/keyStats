@@ -3,27 +3,38 @@ using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
+using System.Windows.Media;
 using KeyStats.Helpers;
+using KeyStats.Models;
 using KeyStats.Services;
+using KeyStats.ViewModels;
+using Forms = System.Windows.Forms;
 
 namespace KeyStats.Views;
 
 public partial class SettingsWindow : Window
 {
     private const string GitHubUrl = "https://github.com/debugtheworldbot/keyStats";
+    private const double WindowEdgeMargin = 16;
+    private bool _isLoadingFloatingStats = true;
 
     public SettingsWindow()
     {
         InitializeComponent();
+        MaxHeight = System.Math.Max(1, SystemParameters.WorkArea.Height - WindowEdgeMargin * 2);
         VersionTextBlock.Text = string.Format(KeyStats.Properties.Strings.Settings_VersionFormat, GetDisplayVersion());
         Loaded += OnLoaded;
         Closed += OnClosed;
+        LocationChanged += OnLocationChanged;
         ThemeManager.Instance.ThemeChanged += OnThemeChanged;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateMaximumHeight();
         ApplyWindowBackdrop();
+        LoadFloatingStatsControls();
         if (App.CurrentApp?.SyncCoordinator != null)
         {
             App.CurrentApp.SyncCoordinator.StatusChanged += OnSyncStatusChanged;
@@ -35,6 +46,7 @@ public partial class SettingsWindow : Window
     private void OnClosed(object? sender, System.EventArgs e)
     {
         ThemeManager.Instance.ThemeChanged -= OnThemeChanged;
+        LocationChanged -= OnLocationChanged;
         if (App.CurrentApp?.SyncCoordinator != null)
         {
             App.CurrentApp.SyncCoordinator.StatusChanged -= OnSyncStatusChanged;
@@ -49,6 +61,26 @@ public partial class SettingsWindow : Window
     private void ApplyWindowBackdrop()
     {
         WindowBackdropHelper.Apply(this, NativeInterop.DwmSystemBackdropType.TransientWindow);
+    }
+
+    private void OnLocationChanged(object? sender, System.EventArgs e)
+    {
+        UpdateMaximumHeight();
+    }
+
+    private void UpdateMaximumHeight()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == System.IntPtr.Zero)
+        {
+            return;
+        }
+
+        var source = PresentationSource.FromVisual(this);
+        var fallbackTransform = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+        var screen = Forms.Screen.FromHandle(handle);
+        var workingArea = MonitorGeometryHelper.GetWorkingAreaInDips(screen, fallbackTransform);
+        MaxHeight = System.Math.Max(1, workingArea.Height - WindowEdgeMargin * 2);
     }
 
     private static string GetDisplayVersion()
@@ -145,6 +177,152 @@ public partial class SettingsWindow : Window
         App.CurrentApp?.ShowNotificationSettings();
     }
 
+    private void LoadFloatingStatsControls()
+    {
+        _isLoadingFloatingStats = true;
+        var options = FloatingStatsViewModel.AvailableMetricIds
+            .Select(metricId => new FloatingMetricOption(
+                metricId,
+                FloatingStatsViewModel.GetMetricLabel(metricId)))
+            .ToList();
+        FloatingPrimaryMetricComboBox.ItemsSource = options;
+        FloatingSecondaryMetricComboBox.ItemsSource = options;
+        FloatingFontSizeComboBox.ItemsSource = Enumerable.Range(
+            AppSettings.MinimumFloatingStatsFontSize,
+            AppSettings.MaximumFloatingStatsFontSize - AppSettings.MinimumFloatingStatsFontSize + 1);
+        RefreshFloatingStatsControls();
+        _isLoadingFloatingStats = false;
+    }
+
+    private void RefreshFloatingStatsControls()
+    {
+        var settings = StatsManager.Instance.Settings;
+        FloatingPrimaryMetricComboBox.SelectedValue = settings.FloatingStatsPrimaryMetric;
+        FloatingSecondaryMetricComboBox.SelectedValue = settings.FloatingStatsSecondaryMetric;
+        var layoutMode = string.Equals(
+            settings.FloatingStatsLayoutMode,
+            AppSettings.FloatingStatsDoubleRowLayoutMode,
+            System.StringComparison.Ordinal)
+            ? AppSettings.FloatingStatsDoubleRowLayoutMode
+            : AppSettings.FloatingStatsSingleRowLayoutMode;
+        FloatingLayoutComboBox.SelectedItem = FloatingLayoutComboBox.Items
+            .Cast<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(
+                item.Tag as string,
+                layoutMode,
+                System.StringComparison.Ordinal))
+            ?? FloatingLayoutComboBox.Items[0];
+        FloatingTopmostCheckBox.IsChecked = settings.FloatingStatsTopmost;
+        FloatingLockPositionCheckBox.IsChecked = settings.FloatingStatsPositionLocked;
+        FloatingFontSizeComboBox.SelectedItem = settings.FloatingStatsFontSize;
+    }
+
+    private void FloatingMetric_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingFloatingStats || sender is not ComboBox comboBox)
+        {
+            return;
+        }
+
+        var isPrimary = ReferenceEquals(comboBox, FloatingPrimaryMetricComboBox);
+        if (comboBox.SelectedValue is not string metricId || string.IsNullOrWhiteSpace(metricId))
+        {
+            return;
+        }
+
+        if (!FloatingStatsViewModel.UpdateMetricSetting(isPrimary, metricId))
+        {
+            _isLoadingFloatingStats = true;
+            RefreshFloatingStatsControls();
+            _isLoadingFloatingStats = false;
+            return;
+        }
+
+        App.CurrentApp?.TrackClick("settings_floating_stats_metric_change", new System.Collections.Generic.Dictionary<string, object?>
+        {
+            ["slot"] = isPrimary ? "primary" : "secondary",
+            ["metric"] = metricId
+        });
+    }
+
+    private void FloatingLayout_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingFloatingStats || FloatingLayoutComboBox.SelectedItem is not ComboBoxItem selectedItem)
+        {
+            return;
+        }
+
+        if (selectedItem.Tag is not string layoutMode)
+        {
+            return;
+        }
+
+        if (!string.Equals(layoutMode, AppSettings.FloatingStatsSingleRowLayoutMode, System.StringComparison.Ordinal) &&
+            !string.Equals(layoutMode, AppSettings.FloatingStatsDoubleRowLayoutMode, System.StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var settings = StatsManager.Instance.Settings;
+        if (string.Equals(settings.FloatingStatsLayoutMode, layoutMode, System.StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        settings.FloatingStatsLayoutMode = layoutMode;
+        StatsManager.Instance.SaveSettings();
+        App.CurrentApp?.ApplyFloatingStatsBehaviorSettings();
+        App.CurrentApp?.TrackClick("settings_floating_stats_layout", new System.Collections.Generic.Dictionary<string, object?>
+        {
+            ["layout"] = layoutMode
+        });
+    }
+
+    private void FloatingStatsBehavior_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingFloatingStats)
+        {
+            return;
+        }
+
+        var settings = StatsManager.Instance.Settings;
+        settings.FloatingStatsTopmost = FloatingTopmostCheckBox.IsChecked == true;
+        settings.FloatingStatsPositionLocked = FloatingLockPositionCheckBox.IsChecked == true;
+        StatsManager.Instance.SaveSettings();
+        App.CurrentApp?.ApplyFloatingStatsBehaviorSettings();
+
+        var eventName = ReferenceEquals(sender, FloatingTopmostCheckBox)
+            ? "settings_floating_stats_topmost"
+            : "settings_floating_stats_position_lock";
+        var enabled = sender is CheckBox checkBox && checkBox.IsChecked == true;
+        App.CurrentApp?.TrackClick(eventName, new System.Collections.Generic.Dictionary<string, object?>
+        {
+            ["enabled"] = enabled
+        });
+    }
+
+    private void FloatingFontSize_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingFloatingStats || FloatingFontSizeComboBox.SelectedItem is not int fontSize)
+        {
+            return;
+        }
+
+        var settings = StatsManager.Instance.Settings;
+        if (settings.FloatingStatsFontSize == fontSize)
+        {
+            return;
+        }
+
+        settings.FloatingStatsFontSize = fontSize;
+        StatsManager.Instance.SaveSettings();
+        App.CurrentApp?.ApplyFloatingStatsBehaviorSettings();
+        App.CurrentApp?.TrackClick("settings_floating_stats_font_size", new System.Collections.Generic.Dictionary<string, object?>
+        {
+            ["font_size"] = fontSize
+        });
+    }
+
     private void MouseCalibration_Click(object sender, RoutedEventArgs e)
     {
         App.CurrentApp?.TrackClick("open_mouse_calibration");
@@ -237,5 +415,18 @@ public partial class SettingsWindow : Window
             System.Console.WriteLine($"RestartApp: relaunch failed: {ex}");
         }
         Application.Current.Shutdown();
+    }
+
+    private sealed class FloatingMetricOption
+    {
+        public FloatingMetricOption(string id, string label)
+        {
+            Id = id;
+            Label = label;
+        }
+
+        public string Id { get; }
+
+        public string Label { get; }
     }
 }

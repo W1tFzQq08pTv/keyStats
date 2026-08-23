@@ -6,6 +6,13 @@ namespace KeyStats.Models;
 public class AppSettings
 {
     public const double DefaultMouseMetersPerPixel = 0.00005;
+    public const string FloatingStatsSingleRowLayoutMode = "singleRow";
+    public const string FloatingStatsDoubleRowLayoutMode = "doubleRow";
+    public const int FloatingStatsLayoutBaseFontSize = 11;
+    public const int DefaultFloatingStatsFontSize = 12;
+    public const int MinimumFloatingStatsFontSize = 9;
+    public const int MaximumFloatingStatsFontSize = 22;
+    private int _floatingStatsFontSize = DefaultFloatingStatsFontSize;
 
     [JsonPropertyName("notificationsEnabled")]
     public bool NotificationsEnabled { get; set; }
@@ -57,6 +64,42 @@ public class AppSettings
 
     [JsonPropertyName("mainWindowHeight")]
     public double? MainWindowHeight { get; set; }
+
+    [JsonPropertyName("floatingStatsEnabled")]
+    public bool FloatingStatsEnabled { get; set; }
+
+    [JsonPropertyName("floatingStatsPrimaryMetric")]
+    public string FloatingStatsPrimaryMetric { get; set; } = "keyPresses";
+
+    [JsonPropertyName("floatingStatsSecondaryMetric")]
+    public string FloatingStatsSecondaryMetric { get; set; } = "totalClicks";
+
+    [JsonPropertyName("floatingStatsLayoutMode")]
+    public string FloatingStatsLayoutMode { get; set; } = FloatingStatsDoubleRowLayoutMode;
+
+    [JsonPropertyName("floatingStatsFontSize")]
+    public int FloatingStatsFontSize
+    {
+        get => _floatingStatsFontSize;
+        set => _floatingStatsFontSize = Math.Max(
+            MinimumFloatingStatsFontSize,
+            Math.Min(MaximumFloatingStatsFontSize, value));
+    }
+
+    [JsonPropertyName("floatingStatsLeft")]
+    public double? FloatingStatsLeft { get; set; }
+
+    [JsonPropertyName("floatingStatsTop")]
+    public double? FloatingStatsTop { get; set; }
+
+    [JsonPropertyName("floatingStatsMonitorDeviceName")]
+    public string? FloatingStatsMonitorDeviceName { get; set; }
+
+    [JsonPropertyName("floatingStatsTopmost")]
+    public bool FloatingStatsTopmost { get; set; } = true;
+
+    [JsonPropertyName("floatingStatsPositionLocked")]
+    public bool FloatingStatsPositionLocked { get; set; }
 
     [JsonPropertyName("languagePreference")]
     public string LanguagePreference { get; set; } = "system";  // "system" | "zh-Hans" | "zh-Hant" | "en"

@@ -29,6 +29,7 @@ public static class Strings
     public static string Notif_ClickThresholdReachedFormat => Get(nameof(Notif_ClickThresholdReachedFormat));
 
     public static string Tray_OpenMainWindow => Get(nameof(Tray_OpenMainWindow));
+    public static string Tray_ShowFloatingStats => Get(nameof(Tray_ShowFloatingStats));
     public static string Tray_Settings => Get(nameof(Tray_Settings));
     public static string Tray_StartAtLogin => Get(nameof(Tray_StartAtLogin));
     public static string Tray_KeyHistory => Get(nameof(Tray_KeyHistory));
@@ -72,6 +73,8 @@ public static class Strings
     public static string Settings_Sync => Get(nameof(Settings_Sync));
     public static string Settings_SyncDesc => Get(nameof(Settings_SyncDesc));
     public static string Settings_SyncUnavailable => Get(nameof(Settings_SyncUnavailable));
+    public static string Settings_FloatingStats => Get(nameof(Settings_FloatingStats));
+    public static string Settings_FloatingStatsDesc => Get(nameof(Settings_FloatingStatsDesc));
 
     public static string Sync_WindowTitle => Get(nameof(Sync_WindowTitle));
     public static string Sync_HeaderTitle => Get(nameof(Sync_HeaderTitle));
@@ -164,6 +167,18 @@ public static class Strings
     public static string Metric_Scroll => Get(nameof(Metric_Scroll));
     public static string Stats_PeakKpsTooltipLabel => Get(nameof(Stats_PeakKpsTooltipLabel));
     public static string Stats_PeakCpsTooltipLabel => Get(nameof(Stats_PeakCpsTooltipLabel));
+    public static string FloatingStats_WindowTitle => Get(nameof(FloatingStats_WindowTitle));
+    public static string FloatingStats_Today => Get(nameof(FloatingStats_Today));
+    public static string FloatingStats_PrimaryMetric => Get(nameof(FloatingStats_PrimaryMetric));
+    public static string FloatingStats_SecondaryMetric => Get(nameof(FloatingStats_SecondaryMetric));
+    public static string FloatingStats_Layout => Get(nameof(FloatingStats_Layout));
+    public static string FloatingStats_FontSize => Get(nameof(FloatingStats_FontSize));
+    public static string FloatingStats_SingleRow => Get(nameof(FloatingStats_SingleRow));
+    public static string FloatingStats_DoubleRow => Get(nameof(FloatingStats_DoubleRow));
+    public static string FloatingStats_AlwaysOnTop => Get(nameof(FloatingStats_AlwaysOnTop));
+    public static string FloatingStats_LockPosition => Get(nameof(FloatingStats_LockPosition));
+    public static string FloatingStats_OpenDetails => Get(nameof(FloatingStats_OpenDetails));
+    public static string FloatingStats_Hide => Get(nameof(FloatingStats_Hide));
 
     public static string AppStats_WindowTitle => Get(nameof(AppStats_WindowTitle));
     public static string AppStats_HeaderTitle => Get(nameof(AppStats_HeaderTitle));

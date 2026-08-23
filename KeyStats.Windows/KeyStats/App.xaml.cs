@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Threading;
 using KeyStats.Helpers;
 using KeyStats.Services;
 using KeyStats.ViewModels;
@@ -36,11 +37,15 @@ public partial class App : System.Windows.Application
     private KeyboardHeatmapWindow? _keyboardHeatmapWindow;
     private KeyHistoryWindow? _keyHistoryWindow;
     private SyncSettingsWindow? _syncSettingsWindow;
+    private FloatingStatsWindow? _floatingStatsWindow;
+    private MenuItem? _floatingStatsMenuItem;
+    private DispatcherTimer? _floatingStatsVisibilityTimer;
     private System.Threading.Mutex? _singleInstanceMutex;
     private string? _appVersion;
     private IPostHogAnalytics? _postHogClient;
     private SyncCoordinator? _syncCoordinator;
     private long _lastResumeRecoveryTicks;
+    private bool _isFloatingStatsHiddenForFullscreen;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -132,6 +137,11 @@ public partial class App : System.Windows.Application
             });
             RecreateTrayIntegration();
 
+            if (statsManager.Settings.FloatingStatsEnabled)
+            {
+                ShowFloatingStatsWindow();
+            }
+
             Console.WriteLine("Tray icon created successfully!");
             Console.WriteLine("App is running. Look for the icon in the system tray.");
         }
@@ -156,6 +166,23 @@ public partial class App : System.Windows.Application
             _trayIconViewModel?.ShowMainWindow();
         };
         menu.Items.Add(openMainWindowItem);
+
+        _floatingStatsMenuItem = new System.Windows.Controls.MenuItem
+        {
+            Header = KeyStats.Properties.Strings.Tray_ShowFloatingStats,
+            IsCheckable = true,
+            IsChecked = StatsManager.Instance.Settings.FloatingStatsEnabled
+        };
+        _floatingStatsMenuItem.Click += (s, e) =>
+        {
+            var menuItem = (System.Windows.Controls.MenuItem)s!;
+            TrackClick("context_menu_floating_stats", new Dictionary<string, object?>
+            {
+                ["enabled"] = menuItem.IsChecked
+            });
+            SetFloatingStatsVisible(menuItem.IsChecked);
+        };
+        menu.Items.Add(_floatingStatsMenuItem);
 
         var settingsItem = new System.Windows.Controls.MenuItem { Header = KeyStats.Properties.Strings.Tray_Settings };
         settingsItem.Click += (s, e) =>
@@ -269,6 +296,134 @@ public partial class App : System.Windows.Application
     public void ShowStatsPanel()
     {
         _trayIconViewModel?.ShowStatsCommand.Execute(null);
+    }
+
+    public void ShowFloatingStatsWindow()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(ShowFloatingStatsWindow));
+            return;
+        }
+
+        StartFloatingStatsVisibilityMonitor();
+        if (FullscreenWindowDetector.IsForegroundWindowFullscreen())
+        {
+            _isFloatingStatsHiddenForFullscreen = true;
+            _floatingStatsWindow?.Hide();
+            return;
+        }
+
+        _isFloatingStatsHiddenForFullscreen = false;
+
+        if (_floatingStatsWindow != null)
+        {
+            _floatingStatsWindow.ShowWindow();
+            return;
+        }
+
+        _floatingStatsWindow = new FloatingStatsWindow();
+        _floatingStatsWindow.Closed += (_, _) => _floatingStatsWindow = null;
+        _floatingStatsWindow.ShowWindow();
+    }
+
+    public void SetFloatingStatsVisible(bool isVisible)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(() => SetFloatingStatsVisible(isVisible)));
+            return;
+        }
+
+        var settings = StatsManager.Instance.Settings;
+        if (settings.FloatingStatsEnabled != isVisible)
+        {
+            settings.FloatingStatsEnabled = isVisible;
+            StatsManager.Instance.SaveSettings();
+        }
+
+        if (_floatingStatsMenuItem != null)
+        {
+            _floatingStatsMenuItem.IsChecked = isVisible;
+        }
+
+        if (isVisible)
+        {
+            ShowFloatingStatsWindow();
+            return;
+        }
+
+        StopFloatingStatsVisibilityMonitor();
+        _isFloatingStatsHiddenForFullscreen = false;
+        _floatingStatsWindow?.Close();
+        _floatingStatsWindow = null;
+    }
+
+    private void StartFloatingStatsVisibilityMonitor()
+    {
+        if (_floatingStatsVisibilityTimer == null)
+        {
+            _floatingStatsVisibilityTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500)
+            };
+            _floatingStatsVisibilityTimer.Tick += OnFloatingStatsVisibilityTimerTick;
+        }
+
+        _floatingStatsVisibilityTimer.Start();
+    }
+
+    private void StopFloatingStatsVisibilityMonitor()
+    {
+        if (_floatingStatsVisibilityTimer == null)
+        {
+            return;
+        }
+
+        _floatingStatsVisibilityTimer.Stop();
+        _floatingStatsVisibilityTimer.Tick -= OnFloatingStatsVisibilityTimerTick;
+        _floatingStatsVisibilityTimer = null;
+    }
+
+    private void OnFloatingStatsVisibilityTimerTick(object? sender, EventArgs e)
+    {
+        if (!StatsManager.Instance.Settings.FloatingStatsEnabled)
+        {
+            StopFloatingStatsVisibilityMonitor();
+            return;
+        }
+
+        var shouldHideForFullscreen = FullscreenWindowDetector.IsForegroundWindowFullscreen();
+        if (shouldHideForFullscreen)
+        {
+            if (_isFloatingStatsHiddenForFullscreen)
+            {
+                return;
+            }
+
+            _isFloatingStatsHiddenForFullscreen = true;
+            _floatingStatsWindow?.Hide();
+            return;
+        }
+
+        if (!_isFloatingStatsHiddenForFullscreen)
+        {
+            return;
+        }
+
+        _isFloatingStatsHiddenForFullscreen = false;
+        ShowFloatingStatsWindow();
+    }
+
+    public void ApplyFloatingStatsBehaviorSettings()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(ApplyFloatingStatsBehaviorSettings));
+            return;
+        }
+
+        _floatingStatsWindow?.ApplyBehaviorSettings();
     }
 
     public void ShowMainWindow()
@@ -470,6 +625,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        StopFloatingStatsVisibilityMonitor();
         UnregisterSystemEventHandlers();
         if (_trayIconViewModel != null)
         {
@@ -487,6 +643,8 @@ public partial class App : System.Windows.Application
             _trayIcon.Dispose();
             _trayIcon = null;
         }
+        _floatingStatsWindow?.Close();
+        _floatingStatsWindow = null;
         InputMonitorService.Instance.StopMonitoring();
         _syncCoordinator?.Dispose();
         _syncCoordinator = null;
@@ -1024,6 +1182,7 @@ public partial class App : System.Windows.Application
             Visible = true
         };
         _trayIcon.MouseClick += OnTrayIconMouseClick;
+
     }
 
     private void OnTrayIconMouseClick(object? sender, Forms.MouseEventArgs e)
